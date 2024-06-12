@@ -56,6 +56,7 @@ El proyecto está estructurado de la siguiente manera:
 Si deseas contribuir a este proyecto, por favor sigue los siguientes pasos:
 
 1. Haz un fork del repositorio.
+
 2. Crea una nueva rama para tus cambios:
    ```bash
    git checkout -b feature-nueva-funcionalidad
