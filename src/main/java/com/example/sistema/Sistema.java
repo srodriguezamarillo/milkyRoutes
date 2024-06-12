@@ -5,6 +5,7 @@ import com.example.estructuras.*;
 import java.awt.Desktop;
 import java.io.IOException;
 import java.net.URI;
+import java.util.regex.Pattern;
 
 public class Sistema implements ISistema {
 
@@ -15,6 +16,10 @@ public class Sistema implements ISistema {
     public enum TipoPunto {
         CIUDAD, TAMBO, CENTRO_PASTEURIZADO
     }
+
+    private static final Pattern CEDULA_PATTERN = Pattern.compile("^\\d{1}\\.\\d{3}\\.\\d{3}-\\d$");
+    private static final Pattern CELULAR_PATTERN = Pattern.compile("^09\\d{7}$");
+    private static final Pattern EMAIL_PATTERN = Pattern.compile("^[\\w.-]+@[\\w.-]+\\.[a-zA-Z]{2,4}$");
 
     @Override
     public Retorno inicializarSistema(int cantPuntos) {
@@ -245,66 +250,17 @@ public class Sistema implements ISistema {
 
     // Valida que la cédula tenga el formato correcto (N.NNN.NNN-N)
     public boolean validarCedula(String cedula) {
-        int f = 1;
-        if (cedula.length() != 11) {
-            return false;
-        }
-        if (!cedula.substring(1, 2).equalsIgnoreCase(".")) {
-            return false;
-        }
-        if (!cedula.substring(5, 6).equalsIgnoreCase(".")) {
-            return false;
-        }
-        if (!cedula.substring(9, 10).equalsIgnoreCase("-")) {
-            return false;
-        }
-        for (int i = 0; i < cedula.length(); i++) {
-            if (i == 1 || i == 5 || i == 9) {
-                i++;
-                f++;
-            }
-            if (!tryParseInt(cedula.substring(i, f))) {
-                return false;
-            }
-            f++;
-        }
-        return true;
+        return CEDULA_PATTERN.matcher(cedula).matches();
     }
 
     // Valida que el celular tenga el formato correcto (09NNNNNNN)
     public boolean validarCelular(String celular) {
-        if (celular.length() != 9) {
-            return false;
-        }
-        if (!celular.substring(0, 1).equalsIgnoreCase("0") || !celular.substring(1, 2).equalsIgnoreCase("9")) {
-            return false;
-        }
-        int i;
-        int f = 3;
-        for (i = 2; i < celular.length(); i++) {
-            if (!tryParseInt(celular.substring(i, f))) {
-                return false;
-            }
-            f++;
-        }
-        return true;
+        return CELULAR_PATTERN.matcher(celular).matches();
     }
 
     // Valida que el email tenga un formato correcto
     public boolean validarEmail(String email) {
-        boolean puntoEsOk = false;
-        boolean arrobaEsOk = false;
-        int f = 1;
-        for (int i = 0; i < email.length(); i++) {
-            if (email.substring(i, f).equalsIgnoreCase("@")) {
-                arrobaEsOk = true;
-            }
-            if (email.substring(i, f).equalsIgnoreCase(".")) {
-                puntoEsOk = true;
-            }
-            f++;
-        }
-        return puntoEsOk && arrobaEsOk;
+        return EMAIL_PATTERN.matcher(email).matches();
     }
 
     public boolean tryParseInt(String value) {
