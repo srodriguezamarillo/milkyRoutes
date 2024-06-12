@@ -8,7 +8,7 @@ import com.example.sistema.ISistema;
 import com.example.sistema.Retorno;
 import com.example.sistema.Sistema;
 
-public class TestObligatorio {
+public class TestSistema {
 
 	@Test
 	public void testInicializarDestruirSistema() {
