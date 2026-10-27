@@ -24,4 +24,21 @@ public class TestArbol {
         assertTrue(arbol.contieneElemento(new Productor("5")));
         assertFalse(arbol.contieneElemento(new Productor("4")));
     }
+
+    @Test
+    public void testInsertDuplicateProducerIsRejected() {
+        Arbol arbol = new Arbol(new ProductorComparator());
+
+        assertTrue(arbol.insertarElemento(new Productor("3")));
+        assertTrue(arbol.insertarElemento(new Productor("1")));
+        assertTrue(arbol.insertarElemento(new Productor("5")));
+        String inOrderBefore = arbol.mostrarInOrder();
+
+        // Duplicates (same cedula) must be rejected both at the root and deeper in the tree.
+        assertFalse(arbol.insertarElemento(new Productor("3")));
+        assertFalse(arbol.insertarElemento(new Productor("5")));
+
+        // Rejected insertions must not alter the tree.
+        assertEquals(inOrderBefore, arbol.mostrarInOrder());
+    }
 }
