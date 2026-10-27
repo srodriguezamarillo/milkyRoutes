@@ -2,6 +2,9 @@ package com.example;
 
 import static org.junit.Assert.*;
 
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
+
 import org.junit.Test;
 
 import com.example.sistema.ISistema;
@@ -191,6 +194,59 @@ public class TestSistema {
 		s.inicializarSistema(10);
 		cargarCiudades(s);
 		assertEquals(ISistema.TipoError.OK, s.mapaEstado().getResultado());
+	}
+
+	@Test
+	public void testMapaEstadoSistemaVacio() {
+		// The map state of an empty system must keep the exact same
+		// (valorEntero, valorString, resultado) contract with no side effects.
+		Sistema s = new Sistema();
+		s.inicializarSistema(10);
+
+		Retorno res = s.mapaEstado();
+		assertEquals(ISistema.TipoError.OK, res.getResultado());
+		assertEquals(0, res.getValorEntero());
+		assertEquals("", res.getValorString());
+
+		// Repeated calls must stay stable with the same Retorno contract.
+		Retorno resRepetido = s.mapaEstado();
+		assertEquals(ISistema.TipoError.OK, resRepetido.getResultado());
+		assertEquals(0, resRepetido.getValorEntero());
+		assertEquals("", resRepetido.getValorString());
+	}
+
+	@Test
+	public void testMapaEstadoConCiudadesYTramos() {
+		// Points and segments no longer feed any map URL generation, so the
+		// Retorno contract must remain (0, "", OK) on a populated system.
+		Sistema s = new Sistema();
+		s.inicializarSistema(10);
+		cargarCiudades(s);
+		assertEquals(ISistema.TipoError.OK,
+				s.registrarTramo(-32.3105104, -58.0759192, -32.698367, -57.6356507, 10).getResultado());
+
+		Retorno res = s.mapaEstado();
+		assertEquals(ISistema.TipoError.OK, res.getResultado());
+		assertEquals(0, res.getValorEntero());
+		assertEquals("", res.getValorString());
+	}
+
+	@Test
+	public void testMapaEstadoSinSalidaEnConsola() {
+		// No console side effects: mapaEstado() must not print anything.
+		Sistema s = new Sistema();
+		s.inicializarSistema(10);
+		cargarCiudades(s);
+
+		PrintStream salidaOriginal = System.out;
+		ByteArrayOutputStream salidaCapturada = new ByteArrayOutputStream();
+		System.setOut(new PrintStream(salidaCapturada));
+		try {
+			assertEquals(ISistema.TipoError.OK, s.mapaEstado().getResultado());
+		} finally {
+			System.setOut(salidaOriginal);
+		}
+		assertEquals("", salidaCapturada.toString().trim());
 	}
 
 	// PRUEBAS DE registro de Tambos y CENTROS
