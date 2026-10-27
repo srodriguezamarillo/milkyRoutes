@@ -61,8 +61,12 @@ public class Sistema implements ISistema {
         }
         NodoPuntoMapa ciudadNueva = new NodoPuntoMapa(TipoPunto.CIUDAD, nombre, coordX, coordY);
         if (GrafoMatriz.getPuntosMapa().buscarPuntoMapa(ciudadNueva) == null) {
-            GrafoMatriz.getPuntosMapa().agregarPunto(ciudadNueva);
-            return new Retorno(0, "", TipoError.OK);
+            // The insert result is honored: a rejected insert (e.g. capacity)
+            // must not report OK, otherwise the quota accounting drifts.
+            if (GrafoMatriz.getPuntosMapa().agregarPunto(ciudadNueva)) {
+                return new Retorno(0, "", TipoError.OK);
+            }
+            return new Retorno(0, "", TipoError.ERROR_1);
         }
         return new Retorno(0, "", TipoError.ERROR_2);
     }
