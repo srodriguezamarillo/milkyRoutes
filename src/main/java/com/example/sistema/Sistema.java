@@ -78,6 +78,11 @@ public class Sistema implements ISistema {
         if (capacidad > 0) {
             NodoPuntoMapa tamboNuevo = new NodoPuntoMapa(TipoPunto.TAMBO, nombre, coordX, coordY, cedula_productor, capacidad);
             if (GrafoMatriz.getPuntosMapa().buscarPuntoMapa(tamboNuevo) == null) {
+                if (cedula_productor == null
+                        || !arbolProductores.contieneElemento(
+                        new Productor(cedula_productor))) {
+                    return new Retorno(0, "", TipoError.ERROR_4);
+                }
                 if (GrafoMatriz.getPuntosMapa().agregarPunto(tamboNuevo)) {
                     return new Retorno(0, "", TipoError.OK);
                 }

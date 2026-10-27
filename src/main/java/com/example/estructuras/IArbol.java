@@ -50,4 +50,12 @@ public interface IArbol extends Iterable<Object> {
      * @return true si el elemento se inserta con éxito, false en caso contrario.
      */
     boolean insertarElementoContinuacion(Object dato, NodoArbol nodo);
+
+    /**
+     * Checks whether an element exists in the tree.
+     *
+     * @param dato element to search for
+     * @return true if the element exists
+     */
+    boolean contieneElemento(Object dato);
 }
