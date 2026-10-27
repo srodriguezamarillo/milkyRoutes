@@ -11,7 +11,7 @@ stop at the first step that fails, reporting honestly what happened.
 ## 1. Inspect
 - Read AGENTS.md first, then every file relevant to the task.
 - Explain your approach briefly before making complex modifications.
-- Do not modify application logic or unrelated files.
+- Do not modify unrelated files or application logic outside the requested scope.
 
 ## 2. Prepare the branch
 - Run `git status --short --branch`. Stop if the working tree is not clean.
