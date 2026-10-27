@@ -112,4 +112,23 @@ public class Arbol implements IArbol {
             }
         };
     }
+
+    @Override
+    public boolean contieneElemento(Object dato) {
+        NodoArbol current = raiz;
+
+        while (current != null) {
+            int comparison = comp.compare(current.getDato(), dato);
+
+            if (comparison == 0) {
+                return true;
+            }
+
+            current = comparison > 0
+                    ? current.getIzq()
+                    : current.getDer();
+        }
+
+        return false;
+    }
 }
