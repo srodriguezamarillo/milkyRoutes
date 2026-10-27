@@ -22,6 +22,35 @@ original algorithms and data structures.
 - Separate bug fixes, refactoring, and new features.
 - Review the diff before committing.
 
+## Development Automation
+- GitHub Actions CI (`.github/workflows/ci.yml`) runs `mvn -B clean verify` on
+  every pull request and push to main, with JDK 21 (Temurin), Maven dependency
+  caching, and headless mode (`JAVA_TOOL_OPTIONS=-Djava.awt.headless=true`).
+- Run the same verification locally before pushing:
+  `JAVA_HOME=<JDK 21 path> JAVA_TOOL_OPTIONS=-Djava.awt.headless=true mvn -B clean verify`.
+- `/deliver <task>` (`.opencode/commands/deliver.md`, OpenCode V2) runs the
+  delivery loop below in the Build agent.
+
+```mermaid
+flowchart TD
+    A["/deliver task"] --> B{Working tree clean?}
+    B -- no --> Z[Stop and report]
+    B -- yes --> C[Update main with --ff-only]
+    C --> D[Create focused feature branch]
+    D --> E[Implement and add regression tests]
+    E --> F[mvn -B clean verify]
+    F -- failure --> Z
+    F -- success --> G[Review diff and commit]
+    G --> H{Push approved?}
+    H -- no --> G
+    H -- yes --> I[Push and open PR]
+    I --> J[Report PR URL and test results]
+```
+
+- Automation safety rules: never commit directly to main; never force-push,
+  reset, clean, or delete branches; never merge PRs automatically; stop when
+  validation fails; only report verified results.
+
 ## Quality
 - Preserve existing behavior during pure refactoring.
 - Add regression tests for every bug fix.
