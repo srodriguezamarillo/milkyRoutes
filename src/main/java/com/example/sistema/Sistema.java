@@ -2,9 +2,6 @@ package com.example.sistema;
 
 import com.example.dominio.*;
 import com.example.estructuras.*;
-import java.awt.Desktop;
-import java.io.IOException;
-import java.net.URI;
 import java.util.regex.Pattern;
 
 public class Sistema implements ISistema {
@@ -152,34 +149,10 @@ public class Sistema implements ISistema {
 
     @Override
     public Retorno mapaEstado() {
-        if (GrafoMatriz.getMatrizAdyacencia() != null || GrafoMatriz.getPuntosMapa() != null) {
-            String URL = "http://maps.googleapis.com/maps/api/staticmap?size=1024x768&language=spanish";
-            String strPuntos = "";
-            String strTramos = "&path=color:0x0000ff%7Cweight:5";
-            for (int i = 0; i < GrafoMatriz.getPuntosMapa().getPuntos().length; i++) {
-                if (GrafoMatriz.getPuntosMapa().getPuntos()[i] != null) {
-                    strPuntos += GrafoMatriz.getPuntosMapa().getPuntos()[i].stringMapa();
-                }
-            }
-            for (int i = 0; i < GrafoMatriz.getMatrizAdyacencia().length; i++) {
-                for (int j = 0; j < GrafoMatriz.getMatrizAdyacencia().length; j++) {
-                    if (GrafoMatriz.getMatrizAdyacencia()[i][j] != null) {
-                        strTramos += "%7C" + GrafoMatriz.getMatrizAdyacencia()[i][j].stringMapaTrayecto();
-                    }
-                }
-            }
-            URL += strPuntos + strTramos;
-            if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
-                try {
-                    Desktop.getDesktop().browse(URI.create(URL));
-                } catch (IOException ex) {
-                    System.out.println(ex);
-                }
-            } else {
-                System.out.println("La acción BROWSE no es soportada en esta plataforma.");
-            }
-            return new Retorno(0, "", TipoError.OK);
-        }
+        // Map rendering is a presentation concern, so the business logic no
+        // longer generates Google Static Maps URLs, launches the browser, or
+        // writes to the console. The ISistema contract is preserved: the same
+        // Retorno (0, "", OK) value is returned for every reachable state.
         return new Retorno(0, "", TipoError.OK);
     }
 
