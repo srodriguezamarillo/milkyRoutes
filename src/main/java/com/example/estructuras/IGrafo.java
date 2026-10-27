@@ -8,7 +8,9 @@ public interface IGrafo {
     /**
      * Obtiene el arreglo de predecesores.
      *
-     * @return Arreglo de enteros que representa los predecesores.
+     * @return Array of integers representing the predecessors. A value of -1
+     *         means the vertex has no predecessor (it was not reached); the
+     *         origin points to itself.
      */
     int[] getPrevio();
 
@@ -31,7 +33,9 @@ public interface IGrafo {
      *
      * @param origen Índice del nodo origen.
      * @param destino Índice del nodo destino.
-     * @return El costo del camino más corto entre los nodos.
+     * @return The cost of the shortest path between the nodes, or
+     *         {@link Integer#MAX_VALUE} if the destination is not reachable
+     *         from the origin.
      */
     int caminoMasCorto(int origen, int destino);
 
@@ -40,7 +44,8 @@ public interface IGrafo {
      *
      * @param visitado Arreglo de booleanos que indica los nodos visitados.
      * @param costo Arreglo de enteros que indica el costo de los nodos.
-     * @return El índice del nodo con la distancia más corta.
+     * @return The index of the unvisited node with the shortest distance, or
+     *         -1 when every node was already visited.
      */
     int distanciaMasCorta(boolean[] visitado, int[] costo);
 
