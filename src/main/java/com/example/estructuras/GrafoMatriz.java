@@ -58,42 +58,45 @@ public class GrafoMatriz implements IGrafo {
 
     @Override
     public int caminoMasCorto(int origen, int destino) {
-        int costo[] = new int[this.puntosMapa.getPuntos().length];
-        int camino[] = new int[this.puntosMapa.getPuntos().length];
-        boolean[] visitado = new boolean[this.puntosMapa.getPuntos().length];
+        int n = this.puntosMapa.getPuntos().length;
+        int costo[] = new int[n];
+        int camino[] = new int[n];
+        boolean[] visitado = new boolean[n];
 
-        for (int i = 0; i < this.puntosMapa.getPuntos().length; i++) {
-            if (i != origen) {
-                if (sonAdyacentes(origen, i) || sonAdyacentes(i, origen)) { // Verifica si los nodos son adyacentes
-                    if (sonAdyacentes(origen, i)) {
-                        costo[i] = this.getMatrizAdyacencia()[origen][i].getPeso();
-                        camino[i] = origen;
-                    }
-                    if (sonAdyacentes(i, origen)) {
-                        costo[i] = this.getMatrizAdyacencia()[i][origen].getPeso();
-                        camino[i] = origen;
-                    }
-                } else {
-                    costo[i] = Integer.MAX_VALUE;
-                }
-            } else if (i == origen) {
-                costo[i] = Integer.MAX_VALUE;
-            }
+        // Every vertex starts unreachable and without predecessor; only the
+        // origin starts with cost zero so Dijkstra settles it first.
+        for (int i = 0; i < n; i++) {
+            costo[i] = Integer.MAX_VALUE;
+            camino[i] = -1;
         }
-        for (int i = 1; i < this.puntosMapa.getPuntos().length; i++) {
+        costo[origen] = 0;
+        camino[origen] = origen;
+
+        for (int i = 1; i < n; i++) {
             int w = distanciaMasCorta(visitado, costo);
+            // Stop as soon as the cheapest pending vertex is still unreachable:
+            // relaxing from Integer.MAX_VALUE would wrap around to negative costs.
+            if (w < 0 || costo[w] == Integer.MAX_VALUE) {
+                break;
+            }
             visitado[w] = true;
-            for (int j = 1; j < this.puntosMapa.getPuntos().length; j++) {
-                if ((this.getMatrizAdyacencia()[w][j] != null || this.getMatrizAdyacencia()[j][w] != null) && !visitado[j]) {
+            for (int j = 0; j < n; j++) {
+                if (!visitado[j]) {
+                    // Bidirectional behavior is preserved: an edge registered in
+                    // either direction may be used to move between w and j.
                     if (this.getMatrizAdyacencia()[w][j] != null) {
-                        if (this.getMatrizAdyacencia()[w][j].getPeso() + costo[w] < costo[j]) {
-                            costo[j] = this.getMatrizAdyacencia()[w][j].getPeso() + costo[w];
+                        // Candidate cost is computed in long so sentinel plus
+                        // weight can never wrap around.
+                        long alterna = (long) this.getMatrizAdyacencia()[w][j].getPeso() + costo[w];
+                        if (alterna < costo[j]) {
+                            costo[j] = (int) alterna;
                             camino[j] = w;
                         }
                     }
                     if (this.getMatrizAdyacencia()[j][w] != null) {
-                        if (this.getMatrizAdyacencia()[j][w].getPeso() + costo[w] < costo[j]) {
-                            costo[j] = this.getMatrizAdyacencia()[j][w].getPeso() + costo[w];
+                        long alterna = (long) this.getMatrizAdyacencia()[j][w].getPeso() + costo[w];
+                        if (alterna < costo[j]) {
+                            costo[j] = (int) alterna;
                             camino[j] = w;
                         }
                     }
@@ -106,13 +109,12 @@ public class GrafoMatriz implements IGrafo {
 
     @Override
     public int distanciaMasCorta(boolean[] visitado, int[] costo) {
-        int i = 0;
-        while (visitado[i] && i + 1 < visitado.length - 1) {
-            i++;
-        }
-        int indiceMin = i;
-        for (int j = i; j < visitado.length - 1; j++) {
-            if (costo[j] < costo[indiceMin] && !visitado[j]) {
+        // Hash indices are sparse, so the cheapest unvisited vertex can sit on
+        // any slot: the scan must cover the whole array, including 0 and
+        // length - 1. Returns -1 once every vertex was visited.
+        int indiceMin = -1;
+        for (int j = 0; j < visitado.length; j++) {
+            if (!visitado[j] && (indiceMin == -1 || costo[j] < costo[indiceMin])) {
                 indiceMin = j;
             }
         }
@@ -175,11 +177,19 @@ public class GrafoMatriz implements IGrafo {
     public String imprimirCamino(int[] previo, int origen, int destino) {
         String x = "";
         String resultado = "";
-        if (previo[destino] != origen) {
-            NodoPuntoMapa nodo = this.puntosMapa.getPuntos()[previo[destino]];
+        int previoDestino = previo[destino];
+        // Only walk while the predecessor is usable: inside bounds, a real
+        // point, and not the destination itself. This keeps the walk total for
+        // absent or broken paths (e.g. disconnected vertices) instead of
+        // crashing on a null point or recursing forever.
+        boolean predecesorValido = previoDestino >= 0 && previoDestino < previo.length
+                && previoDestino != destino
+                && this.puntosMapa.getPuntos()[previoDestino] != null;
+        if (predecesorValido && previoDestino != origen) {
+            NodoPuntoMapa nodo = this.puntosMapa.getPuntos()[previoDestino];
             resultado += nodo.listarCoordenadas() + "|";
             cargarCamino(resultado);
-            imprimirCamino(previo, origen, previo[destino]);
+            imprimirCamino(previo, origen, previoDestino);
             return x;
         }
         return x;
