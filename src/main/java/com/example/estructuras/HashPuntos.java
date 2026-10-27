@@ -48,43 +48,48 @@ public class HashPuntos {
 
     /**
      * Adds a point to the hash. Fails when the point already exists (its
-     * coordinates match a stored point), when the allowed capacity is full,
-     * or when the table has no free slot. The capacity guard lives here so
-     * the quota of allowed points is respected by every caller.
+     * coordinates match a stored point anywhere in its probe chain), when the
+     * allowed capacity is full, or when the table has no free slot. The
+     * duplicate scan matters most when the bucket slot is an empty or deleted
+     * place: inserting there directly would hide a same-coordinates point
+     * living deeper in the same chain (e.g. stored before the deletion that
+     * opened the tombstone).
      */
     public boolean agregarPunto(NodoPuntoMapa nodo) {
         if (puntosUsados >= cantPuntos) {
             return false;
         }
         int indice = funcionDisp(nodo.getCoordX(), nodo.getCoordY());
-        if (puntos[indice] == null || puntos[indice] == ELIMINADO) {
-            puntos[indice] = nodo;
-            puntosUsados++;
-            return true;
-        }
-        if (puntos[indice].esIgual(nodo)) {
-            return false;
-        }
-        return encontrarLugarVacio(indice + 1, nodo);
+        return encontrarLugarVacio(indice, nodo);
     }
 
     /**
      * Finds a free slot for a point starting at the given index, probing
-     * forward circularly across the whole table. An empty or deleted slot is
-     * used as the insertion place, while a point with equal coordinates
-     * rejects the insert. The scan is bounded by the table size, so a full
-     * table returns false instead of recursing forever.
+     * forward circularly across the whole table. Callers passing a dispersion
+     * bucket get the regular insert semantics. The insert is self-contained:
+     * it checks the allowed-points quota itself (a direct call cannot push
+     * the count beyond it), rejects coordinates found anywhere in the probe
+     * chain (even when the first slot is free or a tombstone), and only then
+     * writes into the first empty or deleted slot. Both scans are bounded by
+     * the table size, so a full table returns false instead of recursing
+     * forever.
      */
     public boolean encontrarLugarVacio(int indice, NodoPuntoMapa nodo) {
+        if (puntosUsados >= cantPuntos) {
+            return false;
+        }
         int actual = Math.floorMod(indice, puntos.length);
+        // The chain scan stops at empty slots and skips tombstones, exactly
+        // like a lookup: a duplicate behind the insertion place is detected
+        // before any slot is reused.
+        if (buscarPuntoContinuacion(actual, nodo) != null) {
+            return false;
+        }
         for (int paso = 0; paso < puntos.length; paso++) {
             if (puntos[actual] == null || puntos[actual] == ELIMINADO) {
                 puntos[actual] = nodo;
                 puntosUsados++;
                 return true;
-            }
-            if (puntos[actual].esIgual(nodo)) {
-                return false;
             }
             actual = (actual + 1) % puntos.length;
         }
