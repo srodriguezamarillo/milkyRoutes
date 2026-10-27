@@ -137,14 +137,22 @@ public class GrafoMatriz implements IGrafo {
 
     @Override
     public void borrarPunto(NodoPuntoMapa nodo) {
-        int indice = puntosMapa.funcionDisp(nodo.getCoordX(), nodo.getCoordY());
         int I = puntosMapa.indicePuntoMapa(nodo);
-        for (int i = 0; i < cantPuntos; i++) {
+        // Points are only removed from their actual table slot: nulling the
+        // dispersion bucket instead would destroy another colliding point and
+        // leave the victim searchable.
+        if (I < 0) {
+            return;
+        }
+        // The matrix side equals the hash table size, so every tramo tied to
+        // the slot is cleared, including rows/columns beyond cantPuntos.
+        for (int i = 0; i < matrizAdyacencia.length; i++) {
             matrizAdyacencia[i][I] = null;
             matrizAdyacencia[I][i] = null;
         }
-        puntosMapa.getPuntos()[indice] = null;
-        puntosMapa.decrementarPuntosUsados();
+        // The hash performs the removal; the slot becomes a tombstone so the
+        // probe chain stays intact and every other point keeps its index.
+        puntosMapa.quitarPunto(nodo);
     }
 
     @Override
@@ -179,12 +187,14 @@ public class GrafoMatriz implements IGrafo {
         String resultado = "";
         int previoDestino = previo[destino];
         // Only walk while the predecessor is usable: inside bounds, a real
-        // point, and not the destination itself. This keeps the walk total for
-        // absent or broken paths (e.g. disconnected vertices) instead of
-        // crashing on a null point or recursing forever.
+        // point (not a deleted tombstone), and not the destination itself.
+        // This keeps the walk total for absent or broken paths (e.g. stale
+        // predecessors after deleting a point) instead of crashing or
+        // printing placeholder coordinates.
         boolean predecesorValido = previoDestino >= 0 && previoDestino < previo.length
                 && previoDestino != destino
-                && this.puntosMapa.getPuntos()[previoDestino] != null;
+                && this.puntosMapa.getPuntos()[previoDestino] != null
+                && !HashPuntos.esEliminado(this.puntosMapa.getPuntos()[previoDestino]);
         if (predecesorValido && previoDestino != origen) {
             NodoPuntoMapa nodo = this.puntosMapa.getPuntos()[previoDestino];
             resultado += nodo.listarCoordenadas() + "|";

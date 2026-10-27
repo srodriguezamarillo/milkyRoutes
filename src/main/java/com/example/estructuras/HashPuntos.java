@@ -6,23 +6,39 @@ public class HashPuntos {
     private NodoPuntoMapa[] puntos; // Arreglo de puntos en el mapa
     private int puntosUsados; // Cantidad de puntos actualmente usados
 
+    /**
+     * Marker for a removed slot. A tombstone keeps the probe chain intact and
+     * the remaining slot indexes stable (the adjacency matrix references them
+     * directly), while lookups skip it and inserts may reuse it. Identity
+     * comparison is used everywhere, so its coordinates are never read.
+     */
+    private static final NodoPuntoMapa ELIMINADO = new NodoPuntoMapa(null, null);
+
+    /**
+     * Indicates whether a point instance is the tombstone used to mark
+     * deleted slots, so external traversals of the table can ignore them.
+     */
+    public static boolean esEliminado(NodoPuntoMapa nodo) {
+        return nodo == ELIMINADO;
+    }
+
     public HashPuntos(int pCantPuntos) {
         this.cantPuntos = pCantPuntos;
         this.puntos = new NodoPuntoMapa[GrafoMatriz.siguientePrimo(pCantPuntos+1)];
         this.puntosUsados = 0;
     }
 
-    // Función de dispersión para determinar la posición en el hash
+    /**
+     * Dispersion function that determines the position in the hash. The
+     * coordinates are scaled before truncating, so decimals keep their weight
+     * in the bucket and two points that differ only after the decimal point
+     * no longer share a slot. Integer coordinates keep exactly the bucket of
+     * the original formula.
+     */
     public int funcionDisp(Double coordX, Double coordY) {
-        int X = coordX.intValue();
-        int Y = coordY.intValue();
-        if (X < 0) {
-            X = X * -1;
-        }
-        if (Y < 0) {
-            Y = Y * -1;
-        }
-        return 10000*(X + Y) % cantPuntos;
+        int X = Math.abs((int) (coordX * 10000));
+        int Y = Math.abs((int) (coordY * 10000));
+        return (X + Y) % cantPuntos;
     }
 
     // Verifica si quedan puntos disponibles
@@ -30,89 +46,114 @@ public class HashPuntos {
         return puntosUsados < cantPuntos;
     }
 
-    // Agrega un punto al hash
+    /**
+     * Adds a point to the hash. Fails when the point already exists (its
+     * coordinates match a stored point), when the allowed capacity is full,
+     * or when the table has no free slot. The capacity guard lives here so
+     * the quota of allowed points is respected by every caller.
+     */
     public boolean agregarPunto(NodoPuntoMapa nodo) {
-        int indice = funcionDisp(nodo.getCoordX(), nodo.getCoordY());
-        if (getPuntos()[indice] != null) {
-            if (getPuntos()[indice].getCoordX().equals(nodo.getCoordX()) && getPuntos()[indice].getCoordY().equals(nodo.getCoordY())) {
-                return false;
-            }
+        if (puntosUsados >= cantPuntos) {
+            return false;
         }
-        if (getPuntos()[indice] == null) {
+        int indice = funcionDisp(nodo.getCoordX(), nodo.getCoordY());
+        if (puntos[indice] == null || puntos[indice] == ELIMINADO) {
             puntos[indice] = nodo;
             puntosUsados++;
             return true;
-        } else {
-            return encontrarLugarVacio(indice + 1, nodo);
         }
+        if (puntos[indice].esIgual(nodo)) {
+            return false;
+        }
+        return encontrarLugarVacio(indice + 1, nodo);
     }
 
-    // Encuentra un lugar vacío en el hash
+    /**
+     * Finds a free slot for a point starting at the given index, probing
+     * forward circularly across the whole table. An empty or deleted slot is
+     * used as the insertion place, while a point with equal coordinates
+     * rejects the insert. The scan is bounded by the table size, so a full
+     * table returns false instead of recursing forever.
+     */
     public boolean encontrarLugarVacio(int indice, NodoPuntoMapa nodo) {
-        if (indice < puntos.length) {
-            if (getPuntos()[indice] == null) {
-                puntos[indice] = nodo;
+        int actual = Math.floorMod(indice, puntos.length);
+        for (int paso = 0; paso < puntos.length; paso++) {
+            if (puntos[actual] == null || puntos[actual] == ELIMINADO) {
+                puntos[actual] = nodo;
                 puntosUsados++;
                 return true;
-            } else if (getPuntos()[indice].getCoordX().equals(nodo.getCoordX())
-                    && getPuntos()[indice].getCoordY().equals(nodo.getCoordY())) {
-                return false;
-            } else {
-                return encontrarLugarVacio((indice + 1) % cantPuntos, nodo);
             }
+            if (puntos[actual].esIgual(nodo)) {
+                return false;
+            }
+            actual = (actual + 1) % puntos.length;
         }
         return false;
     }
 
-    // Busca un punto en el hash
+    /**
+     * Searches for a point with the same coordinates, starting from its
+     * dispersion bucket. The actual probe is delegated to
+     * {@link #buscarPuntoContinuacion}, so displaced points are found and the
+     * scan is bounded.
+     */
     public NodoPuntoMapa buscarPuntoMapa(NodoPuntoMapa nodo) {
         int indice = funcionDisp(nodo.getCoordX(), nodo.getCoordY());
-        if (getPuntos()[indice] != null) {
-            Double CoordXM = getPuntos()[indice].getCoordX();
-            Double CoordYM = getPuntos()[indice].getCoordY();
+        return buscarPuntoContinuacion(indice, nodo);
+    }
 
-            Double CoordXnodo = nodo.getCoordX();
-            Double CoordYnodo = nodo.getCoordY();
-
-            if (CoordXM.equals(CoordXnodo) && CoordYM.equals(CoordYnodo)) {
-                return getPuntos()[indice];
-            } else {
-                return buscarPuntoContinuacion((indice + 1) % cantPuntos, nodo);
+    /**
+     * Continues the search for a point from the given slot, probing forward
+     * circularly across the whole table. An empty slot means the point is not
+     * stored, while deleted slots are skipped so the rest of the chain stays
+     * reachable. The scan is bounded by the table size, so a full table
+     * without a match returns null instead of recursing forever.
+     */
+    public NodoPuntoMapa buscarPuntoContinuacion(int indice, NodoPuntoMapa nodo) {
+        int actual = Math.floorMod(indice, puntos.length);
+        for (int paso = 0; paso < puntos.length; paso++) {
+            if (puntos[actual] == null) {
+                return null;
             }
+            if (puntos[actual] != ELIMINADO && puntos[actual].esIgual(nodo)) {
+                return puntos[actual];
+            }
+            actual = (actual + 1) % puntos.length;
         }
         return null;
     }
 
-    // Continua buscando un punto en el hash
-    public NodoPuntoMapa buscarPuntoContinuacion(int indice, NodoPuntoMapa nodo) {
-        if (getPuntos()[indice] == null) {
-            return null;
-        } else {
-            Double CoordXM = getPuntos()[indice].getCoordX();
-            Double CoordYM = getPuntos()[indice].getCoordY();
-
-            Double CoordXnodo = nodo.getCoordX();
-            Double CoordYnodo = nodo.getCoordY();
-
-            if (CoordXM.equals(CoordXnodo) && CoordYM.equals(CoordYnodo)) {
-                return getPuntos()[indice];
-            } else {
-                return buscarPuntoContinuacion((indice + 1) % cantPuntos, nodo);
-            }
+    /**
+     * Removes a point with the same coordinates from the table. The slot is
+     * marked with a tombstone instead of being nulled: neighboring probe
+     * chains stay traversable and every remaining point keeps its slot
+     * index, which the adjacency matrix depends on. Later inserts may reuse
+     * the tombstone slot.
+     */
+    public boolean quitarPunto(NodoPuntoMapa nodo) {
+        int indice = indicePuntoMapa(nodo);
+        if (indice == -1) {
+            return false;
         }
+        puntos[indice] = ELIMINADO;
+        puntosUsados--;
+        return true;
     }
 
-    // Obtiene el índice de un punto en el hash
+    /**
+     * Returns the table slot where a point with the same coordinates is
+     * stored. Every slot is scanned and deleted markers are skipped, so
+     * points lodging anywhere in the table are found. Returns -1 when the
+     * point is not stored; callers can react to a miss instead of silently
+     * reading or writing the last slot.
+     */
     public int indicePuntoMapa(NodoPuntoMapa nodo) {
-        int i = funcionDisp(nodo.getCoordX(), nodo.getCoordY());
-        for (i = 0; i < getPuntos().length - 1; i++) {
-            if (getPuntos()[i] != null) {
-                if (nodo.esIgual(getPuntos()[i])) {
-                    return i;
-                }
+        for (int i = 0; i < puntos.length; i++) {
+            if (puntos[i] != null && puntos[i] != ELIMINADO && nodo.esIgual(puntos[i])) {
+                return i;
             }
         }
-        return i;
+        return -1;
     }
 
     public NodoPuntoMapa[] getPuntos() {
