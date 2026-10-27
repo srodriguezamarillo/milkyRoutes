@@ -347,4 +347,64 @@ public class TestHashPuntos {
 		assertNotNull(medio);
 		assertEquals(Sistema.TipoPunto.CIUDAD, medio.getTipoPunto());
 	}
+
+	@Test
+	public void testInsertAfterDeletionDetectsDuplicateLaterInChain() {
+		// cantPuntos = 2: (0.0,0.0) takes the bucket slot 0 and (1.0,0.0)
+		// shares the bucket, probing to slot 1.
+		HashPuntos hash = new HashPuntos(2);
+		NodoPuntoMapa a = new NodoPuntoMapa(0.0, 0.0);
+		NodoPuntoMapa b = new NodoPuntoMapa(1.0, 0.0);
+		assertTrue(hash.agregarPunto(a));
+		assertTrue(hash.agregarPunto(b));
+		assertEquals(2, hash.getPuntosUsados());
+
+		// Deleting the bucket occupant leaves a tombstone at slot 0 while the
+		// same-bucket point stays displaced at slot 1.
+		assertTrue(hash.quitarPunto(a));
+		assertTrue(HashPuntos.esEliminado(hash.getPuntos()[0]));
+		assertSame(b, hash.buscarPuntoMapa(new NodoPuntoMapa(1.0, 0.0)));
+
+		// Re-adding the displaced coordinates must be rejected even when the
+		// first slot of the chain is reusable: the linear-probe insert may not
+		// overwrite a tombstone before checking the rest of the chain.
+		assertFalse(hash.agregarPunto(new NodoPuntoMapa(1.0, 0.0)));
+		assertEquals(1, hash.getPuntosUsados());
+		assertTrue(HashPuntos.esEliminado(hash.getPuntos()[0]));
+		assertSame(b, hash.buscarPuntoMapa(new NodoPuntoMapa(1.0, 0.0)));
+		assertEquals(1, hash.indicePuntoMapa(new NodoPuntoMapa(1.0, 0.0)));
+
+		// Once the displaced point is gone too, the coordinates can be
+		// registered again, and the tombstone closest to the bucket wins.
+		assertTrue(hash.quitarPunto(b));
+		assertTrue(hash.agregarPunto(new NodoPuntoMapa(1.0, 0.0)));
+		assertEquals(1, hash.getPuntosUsados());
+		assertEquals(0, hash.indicePuntoMapa(new NodoPuntoMapa(1.0, 0.0)));
+	}
+
+	@Test
+	public void testEncontrarLugarVacioCannotBypassConstraints() {
+		// Capacity: a direct call over a full quota table must not create a
+		// slot beyond the allowed points.
+		HashPuntos hash = new HashPuntos(2);
+		hash.agregarPunto(new NodoPuntoMapa(0.0, 0.0));
+		hash.agregarPunto(new NodoPuntoMapa(1.0, 0.0));
+		assertFalse(hash.encontrarLugarVacio(0, new NodoPuntoMapa(2.0, 0.0)));
+		assertEquals(2, hash.getPuntosUsados());
+
+		// Duplicates: starting the insertion at a tombstone slot must also
+		// reject coordinates that live deeper in the same probe chain.
+		HashPuntos hash2 = new HashPuntos(2);
+		hash2.agregarPunto(new NodoPuntoMapa(0.0, 0.0));
+		hash2.agregarPunto(new NodoPuntoMapa(1.0, 0.0));
+		hash2.quitarPunto(new NodoPuntoMapa(0.0, 0.0));
+		assertFalse(hash2.encontrarLugarVacio(0, new NodoPuntoMapa(1.0, 0.0)));
+		assertEquals(1, hash2.getPuntosUsados());
+		assertTrue(HashPuntos.esEliminado(hash2.getPuntos()[0]));
+
+		// A genuinely new point is still accepted, reusing the tombstone slot.
+		assertTrue(hash2.encontrarLugarVacio(0, new NodoPuntoMapa(5.0, 5.0)));
+		assertEquals(2, hash2.getPuntosUsados());
+		assertNotNull(hash2.buscarPuntoMapa(new NodoPuntoMapa(5.0, 5.0)));
+	}
 }
