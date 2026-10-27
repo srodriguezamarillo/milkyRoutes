@@ -27,14 +27,18 @@ Actual: `OK`
 the referenced producer exists.
 
 ### External Browser Side Effect
-`Sistema.mapaEstado()` opens Google Static Maps from
+`Sistema.mapaEstado()` used to open Google Static Maps from
 the application logic.
 
 The API rejects unauthenticated requests.
 Tests should not open browsers or require external services.
 
+Resolved: `mapaEstado()` no longer generates URLs, opens
+browsers, or writes to the console.
+
 ## Next Steps
 - Fix missing producer validation in a separate bugfix PR.
-- Decouple map visualization from business logic.
+- ~~Decouple map visualization from business logic.~~ (done: `mapaEstado()`
+  side effects removed)
 - Migrate Maven and compilation settings to Java 21.
 - Expand algorithm regression tests.
